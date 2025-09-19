@@ -1,0 +1,13 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# AWS region to deploy resources
+aws_region = "us-east-1"
+
+# Project name for resource naming
+project_name = "ttt99"
+
+# Your SSH public key content (cat ~/.ssh/id_rsa.pub)
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... your-email@example.com"
+
+# Optional: Domain name for SSL certificate
+# domain_name = "ttt99.yourdomain.com"
