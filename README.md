@@ -44,6 +44,24 @@ A Mermaid/diagram file will be included under docs/ (added after initial commit)
 - Disconnects/timeouts: If you disconnect for more than 10 seconds during your move, you lose.
 - Victory: The tournament ends when only one player remains.
 
+## Scoring system
+
+Players earn points based on chess scoring with bonuses:
+
+- **Win**: 1 point
+- **Draw**: 0.5 points (both players get this, then rematch with reduced time)
+- **Loss**: 0 points (and elimination from tournament)
+- **Speed bonus**: +0.1 points for winning with >50% time remaining
+
+**Tournament winner**: The last player standing will naturally have the highest score, as they have the most wins and zero losses. All other players will have exactly 1 loss (when eliminated).
+
+**Example scoring**:
+- Player A: 4 wins, 2 draws, 1 loss = 5.0 points (eliminated)
+- Player B: 3 wins, 0 draws, 0 losses = 3.0 points (tournament winner)
+- Player C: 2 wins, 1 draw, 1 loss = 2.5 points (eliminated)
+
+The tournament winner (Player B) advances because they never lost, even though Player A scored more points before elimination.
+
 ## Fairness and anti-cheat (summary)
 
 - WSS only with TLS; server validates all moves and owns clocks and results.
