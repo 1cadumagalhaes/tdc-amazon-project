@@ -62,6 +62,26 @@ Players earn points based on chess scoring with bonuses:
 
 The tournament winner (Player B) advances because they never lost, even though Player A scored more points before elimination.
 
+## Screenshots
+
+### 1) Home
+![Home screen](docs/screenshots/01-home.png)
+
+### 2) Create user
+![Create user](docs/screenshots/02-create-user.png)
+
+### 3) Lobby
+![Lobby](docs/screenshots/03-lobby.png)
+
+### 4) Game
+![In-game](docs/screenshots/04-game.png)
+
+### 5) Game with premove
+![Game with premove](docs/screenshots/05-game-premove.png)
+
+### 6) Game won
+![Game won](docs/screenshots/06-game-won.png)
+
 ## Fairness and anti-cheat (summary)
 
 - WSS only with TLS; server validates all moves and owns clocks and results.
