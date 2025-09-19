@@ -141,6 +141,41 @@ This section will be updated with a more precise estimate once the first deploy 
 - Add at least one screenshot of the game running locally (queue + in-match UI).
 - Place images in a docs/ directory and reference them in this README.
 
+## Prompsts
+
+
+### Prompt 1: defining problem, planning tasks.
+(site instructions as context)
+
+We are going to build an online web game of tiktaktoe. Do you know about mario 35 or even tetris 99?
+I want something similar to that.
+So its basically players fighting until they lose, and game ends once theres only one player left. When players defeat others, they go back into the "lobby" waiting for another challenger that have defeated others. Games should have time, a game of tiktaktoe shouldnt take more than 30 seconds. This adds some pressure. So lets think like chess time, each player will have 30 seconds to make their move. If game is tied players continue playing, but each game time goes down 5 seconds for player. Of course time limit is 1 second in the end. For low times (below 5 seconds) we can add increment.
+
+Since this is an mvp we should make it so players can start as soon as there is at least one other player.
+Losers are eliminated and we generate their position.
+There is no draw handling, with time pressure players will make mistakes or lose in time. Its part of the game design.
+
+Turn order is random at start and alternates.
+If player time ends they lose, if they disconnect more than 10 seconds its timeout.
+Nickames arent anonymous, but we wont use auth either. We'll just let players say their name per game, store it in the browser as local storage. Names must be unique, alfanumerical, 16 chars long (basically a username)
+
+About stack:
+
+Svelte, tailwind with daisy ui. Typescript with bun, we might use fastify or elysia.
+
+Lets make a first version with sqlite, if I chose to develop this further I can change to postgres. We need to think about sockets and general architecture.
+
+Also I want code design to be more functional than object oriented. Would it be easier if instead of having a server we made p2p connections? Making someone host the lobby, since its an mvp.
+
+Lets go with ec2 to deploy the backend, I prefer that also bc this way we arent tied to a single provider.
+
+Now lets start with the readme. Readme should be a summary, we'll also have an AGENT.md with more detailed instructions, including tasks.
+
+### Prompt 2: executing tasks step by step
+
+Hi! You may ask me questions at any point. Lets develop this step by step. We'll iterate over each part, testing it and making sure it works.
+
+
 ## License
 
 - MIT
