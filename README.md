@@ -122,8 +122,42 @@ The tournament winner (Player B) advances because they never lost, even though P
 
 ## MCP and extensibility
 
-- We will expose a read-only HTTP status endpoint for matches/lobby.
-- An MCP OpenAPI server configuration will allow tools to query live status (read-only) for the challenge requirement.
+- We expose a read-only HTTP status endpoint for matches/lobby at `/status` and health check at `/health`.
+- OpenAPI specification is available at `http://localhost:8080/openapi/json` when the server is running.
+- An MCP OpenAPI server can be configured to query live game status (read-only).
+
+### MCP OpenAPI Configuration
+
+To connect the TTT-99 server as an MCP resource:
+
+1. **Install MCP OpenAPI server** (if not already installed):
+   ```bash
+   npm install -g @modelcontextprotocol/server-openapi
+   ```
+
+2. **Add to your MCP client configuration** (e.g., Claude Desktop):
+   ```json
+   {
+     "mcpServers": {
+       "ttt99": {
+         "command": "npx",
+         "args": [
+           "@modelcontextprotocol/server-openapi",
+           "http://localhost:8080/openapi/json"
+         ]
+       }
+     }
+   }
+   ```
+
+3. **Available MCP tools**:
+   - `getGameStatus`: Get current lobby size, active matches, and server stats
+   - `getHealth`: Check server health and uptime
+
+4. **Example queries**:
+   - "How many players are in the queue?"
+   - "What's the current server status?"
+   - "How many matches are active?"
 - Optional next step: “P2P experimental mode” demo (WebRTC) for learning and comparison.
 
 ## Cost estimate (AWS Free Tier)
