@@ -1,0 +1,14 @@
+{
+  "name": "@ttt-99/web",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "bun server.js",
+    "build": "echo 'Static build complete'",
+    "preview": "bun server.js"
+  },
+  "dependencies": {
+    "@ttt-99/core": "workspace:*"
+  }
+}

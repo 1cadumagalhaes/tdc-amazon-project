@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectate Tournament - TTT-99 Royale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="min-h-screen bg-base-100">
+        <!-- Navigation -->
+        <div class="navbar bg-base-200">
+            <div class="navbar-start">
+                <a href="/" class="btn btn-ghost text-xl">TTT-99 Royale</a>
+            </div>
+            <div class="navbar-center">
+                <span class="text-lg font-semibold">Tournament Spectator</span>
+            </div>
+            <div class="navbar-end">
+                <a href="/join" class="btn btn-primary">Join Tournament</a>
+            </div>
+        </div>
+
+        <div class="container mx-auto p-4">
+            <!-- Tournament Stats -->
+            <div class="grid md:grid-cols-4 gap-4 mb-6">
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Players in Queue</div>
+                    <div class="stat-value text-primary" id="queue-count">-</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Active Matches</div>
+                    <div class="stat-value text-secondary" id="match-count">-</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Total Players</div>
+                    <div class="stat-value text-accent" id="total-count">-</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Matches Completed</div>
+                    <div class="stat-value text-info" id="completed-count">-</div>
+                </div>
+            </div>
+
+            <!-- Live Matches -->
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <div class="card bg-base-200 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title">Live Match #1</h2>
+                        <div id="match-1" class="text-center py-4">
+                            <p class="opacity-70">No active match</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card bg-base-200 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title">Live Match #2</h2>
+                        <div id="match-2" class="text-center py-4">
+                            <p class="opacity-70">No active match</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard -->
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Tournament Leaderboard</h2>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Score</th>
+                                    <th>W/D/L</th>
+                                    <th>Status</th>
+                                    <th>Speed Bonuses</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body">
+                                <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="components.js"></script>
+    <script>
+        // Live match containers
+        let match1Container = null;
+        let match2Container = null;
+
+        // Initialize match containers
+        function initMatchContainers() {
+            // Create containers for live matches
+            document.getElementById('match-1').innerHTML = '<div id="match-1-container"></div>';
+            document.getElementById('match-2').innerHTML = '<div id="match-2-container"></div>';
+            
+            match1Container = new GameContainerComponent('match-1-container');
+            match2Container = new GameContainerComponent('match-2-container');
+            
+            // Disable interactions for spectating
+            match1Container.setCallbacks(null, null, null, null);
+            match2Container.setCallbacks(null, null, null, null);
+        }
+
+        // Update tournament stats
+        function updateStats(data) {
+            document.getElementById('queue-count').textContent = data.playersInQueue || 0;
+            document.getElementById('match-count').textContent = data.activeMatches || 0;
+            document.getElementById('total-count').textContent = data.totalSessions || 0;
+            document.getElementById('completed-count').textContent = data.completedMatches || 0;
+            
+            if (data.leaderboard) {
+                updateLeaderboard(data.leaderboard);
+            }
+        }
+
+        // Update leaderboard
+        function updateLeaderboard(leaderboard) {
+            const tbody = document.getElementById('leaderboard-body');
+            if (leaderboard.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No players yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = leaderboard.map((player, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="font-semibold">${player.username}</td>
+                    <td class="font-mono">${player.totalScore.toFixed(1)}</td>
+                    <td>${player.wins}/${player.draws}/${player.losses}</td>
+                    <td>
+                        <span class="badge ${player.isEliminated ? 'badge-error' : 'badge-success'}">
+                            ${player.isEliminated ? 'Eliminated' : 'Active'}
+                        </span>
+                    </td>
+                    <td>${player.speedBonuses}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Demo: Show sample match
+        function showDemoMatch() {
+            if (match1Container) {
+                match1Container.updatePlayers(
+                    {
+                        username: 'Alice',
+                        score: 3.1,
+                        timeMs: 15000,
+                        mark: 'X',
+                        isActive: true
+                    },
+                    {
+                        username: 'Bob',
+                        score: 2.5,
+                        mark: 'O',
+                        isActive: false,
+                        timeMs: 22000
+                    }
+                );
+
+                match1Container.updateGame({
+                    board: ['X', null, 'O', null, 'X', null, 'O', null, null],
+                    currentPlayer: 'X',
+                    gameStatus: 'playing',
+                    myMark: null // Spectator has no mark
+                });
+            }
+        }
+
+        // Fetch tournament stats
+        function fetchStats() {
+            fetch('http://localhost:8080/status')
+                .then(res => res.json())
+                .then(data => updateStats(data))
+                .catch(() => console.log('Could not fetch stats'));
+        }
+
+        // Initialize
+        initMatchContainers();
+        fetchStats();
+        
+        // Refresh stats every 5 seconds
+        setInterval(fetchStats, 5000);
+    </script>
+</body>
+</html>

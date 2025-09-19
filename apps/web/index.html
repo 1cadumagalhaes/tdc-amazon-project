@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTT-99 Royale - Tic-Tac-Toe Tournament</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="min-h-screen bg-base-100">
+        <!-- Hero Section -->
+        <div class="hero min-h-screen bg-gradient-to-br from-primary/20 to-secondary/20">
+            <div class="hero-content text-center">
+                <div class="max-w-md">
+                    <h1 class="text-5xl font-bold text-primary">TTT-99 Royale</h1>
+                    <p class="py-6 text-lg">
+                        Fast-paced Tic-Tac-Toe tournament with chess clocks. 
+                        Winners advance, losers are eliminated. Last player standing wins!
+                    </p>
+                    
+                    <div class="flex gap-4 justify-center">
+                        <a href="/join" class="btn btn-primary btn-lg">Join Tournament</a>
+                        <a href="/spectate" class="btn btn-outline btn-lg">Spectate</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works -->
+        <div class="py-16 bg-base-200">
+            <div class="container mx-auto px-4">
+                <h2 class="text-3xl font-bold text-center mb-12">How It Works</h2>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body text-center">
+                            <div class="text-4xl mb-4">⚡</div>
+                            <h3 class="card-title justify-center">Chess Clocks</h3>
+                            <p>30 seconds per player. Time reduces on draws. Flag fall = loss!</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body text-center">
+                            <div class="text-4xl mb-4">🏆</div>
+                            <h3 class="card-title justify-center">Winner Advances</h3>
+                            <p>Beat your opponent to stay in the tournament. Losers are eliminated.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body text-center">
+                            <div class="text-4xl mb-4">👑</div>
+                            <h3 class="card-title justify-center">Last Standing</h3>
+                            <p>Keep winning until you're the only player left. Champion takes all!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoring -->
+        <div class="py-16">
+            <div class="container mx-auto px-4 text-center">
+                <h2 class="text-3xl font-bold mb-8">Scoring System</h2>
+                <div class="stats stats-vertical lg:stats-horizontal shadow">
+                    <div class="stat">
+                        <div class="stat-title">Win</div>
+                        <div class="stat-value text-success">1.0</div>
+                        <div class="stat-desc">+0.1 speed bonus if >50% time left</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-title">Draw</div>
+                        <div class="stat-value text-warning">0.5</div>
+                        <div class="stat-desc">Both players, then rematch</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-title">Loss</div>
+                        <div class="stat-value text-error">0.0</div>
+                        <div class="stat-desc">Eliminated from tournament</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

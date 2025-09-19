@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tournament Lobby - TTT-99 Royale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="min-h-screen bg-base-100">
+        <!-- Navigation -->
+        <div class="navbar bg-base-200">
+            <div class="navbar-start">
+                <a href="/" class="btn btn-ghost text-xl">TTT-99 Royale</a>
+            </div>
+            <div class="navbar-center">
+                <span id="username-display" class="text-lg font-semibold"></span>
+            </div>
+            <div class="navbar-end">
+                <a href="/spectate" class="btn btn-outline">Spectate</a>
+            </div>
+        </div>
+
+        <div class="container mx-auto p-4">
+            <!-- Connection Status -->
+            <div class="alert mb-4" id="connection-status">
+                <span id="status-text">Connecting to server...</span>
+            </div>
+
+            <!-- Tournament Stats -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Players in Queue</div>
+                    <div class="stat-value text-primary" id="queue-count">-</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Active Matches</div>
+                    <div class="stat-value text-secondary" id="match-count">-</div>
+                </div>
+                <div class="stat bg-base-200 rounded-lg">
+                    <div class="stat-title">Total Players</div>
+                    <div class="stat-value text-accent" id="total-count">-</div>
+                </div>
+            </div>
+
+            <!-- Queue Status -->
+            <div class="card bg-base-200 shadow-xl mb-6">
+                <div class="card-body">
+                    <h2 class="card-title">Queue Status</h2>
+                    <div id="queue-status" class="text-center py-8">
+                        <div class="loading loading-spinner loading-lg"></div>
+                        <p class="mt-4">Waiting to join queue...</p>
+                    </div>
+                    <div class="card-actions justify-center">
+                        <button id="join-queue-btn" class="btn btn-primary btn-lg" disabled>
+                            Join Queue
+                        </button>
+                        <button id="leave-queue-btn" class="btn btn-outline btn-lg hidden">
+                            Leave Queue
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard -->
+            <div class="card bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Top Players</h2>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Score</th>
+                                    <th>W/D/L</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body">
+                                <tr><td colspan="5" class="text-center">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="websocket-client.js"></script>
+    <script>
+        // Check if user has username
+        const username = localStorage.getItem('ttt99-username');
+        if (!username) {
+            window.location.href = '/join';
+        }
+
+        document.getElementById('username-display').textContent = username;
+
+        // WebSocket client
+        const client = new TTTWebSocketClient();
+        let inQueue = false;
+
+        // Set up event handlers
+        client.onConnect = () => {
+            updateConnectionStatus('Connected', 'alert-success');
+            document.getElementById('join-queue-btn').disabled = false;
+        };
+
+        client.onDisconnect = () => {
+            updateConnectionStatus('Disconnected - Reconnecting...', 'alert-error');
+            document.getElementById('join-queue-btn').disabled = true;
+            document.getElementById('leave-queue-btn').classList.add('hidden');
+            document.getElementById('join-queue-btn').classList.remove('hidden');
+            inQueue = false;
+        };
+
+        client.onError = () => {
+            updateConnectionStatus('Connection Error - Check server', 'alert-error');
+            document.getElementById('join-queue-btn').disabled = true;
+        };
+
+        client.onMessage = (data) => {
+            handleServerMessage(data);
+        };
+
+        function updateConnectionStatus(text, alertClass) {
+            const statusEl = document.getElementById('connection-status');
+            const textEl = document.getElementById('status-text');
+            statusEl.className = `alert mb-4 ${alertClass}`;
+            textEl.textContent = text;
+        }
+
+        function handleServerMessage(data) {
+            console.log('Received:', data);
+            
+            switch (data.type) {
+                case 'lobby_update':
+                    updateStats(data);
+                    break;
+                case 'match_found':
+                    // Store match info and redirect
+                    localStorage.setItem('ttt99-match', JSON.stringify(data));
+                    window.location.href = '/game';
+                    break;
+                case 'error':
+                    console.error(`Error: ${data.message}`);
+                    // Reset queue state on error
+                    inQueue = false;
+                    document.getElementById('join-queue-btn').classList.remove('hidden');
+                    document.getElementById('leave-queue-btn').classList.add('hidden');
+                    break;
+            }
+        }
+
+        function updateStats(data) {
+            document.getElementById('queue-count').textContent = data.playersInQueue || 0;
+            document.getElementById('match-count').textContent = data.activeMatches || 0;
+            document.getElementById('total-count').textContent = data.totalSessions || 0;
+            
+            if (data.leaderboard) {
+                updateLeaderboard(data.leaderboard);
+            }
+        }
+
+        function updateLeaderboard(leaderboard) {
+            const tbody = document.getElementById('leaderboard-body');
+            if (leaderboard.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">No players yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = leaderboard.slice(0, 10).map((player, index) => `
+                <tr ${player.username === username ? 'class="bg-primary/20"' : ''}>
+                    <td>${index + 1}</td>
+                    <td>${player.username}</td>
+                    <td>${player.totalScore.toFixed(1)}</td>
+                    <td>${player.wins}/${player.draws}/${player.losses}</td>
+                    <td>
+                        <span class="badge ${player.isEliminated ? 'badge-error' : 'badge-success'}">
+                            ${player.isEliminated ? 'Eliminated' : 'Active'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Queue controls
+        document.getElementById('join-queue-btn').addEventListener('click', () => {
+            if (client.joinQueue(username)) {
+                inQueue = true;
+                document.getElementById('join-queue-btn').classList.add('hidden');
+                document.getElementById('leave-queue-btn').classList.remove('hidden');
+                document.getElementById('queue-status').innerHTML = `
+                    <div class="loading loading-spinner loading-lg"></div>
+                    <p class="mt-4">In queue - waiting for opponent...</p>
+                `;
+            }
+        });
+
+        document.getElementById('leave-queue-btn').addEventListener('click', () => {
+            // For now, just refresh the page to leave queue
+            window.location.reload();
+        });
+
+        // Start connection
+        client.connect();
+
+        // Fetch initial stats
+        fetch('http://localhost:8080/status')
+            .then(res => res.json())
+            .then(data => updateStats(data))
+            .catch(() => console.log('Could not fetch initial stats'));
+    </script>
+</body>
+</html>

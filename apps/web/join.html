@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Tournament - TTT-99 Royale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="min-h-screen bg-base-100">
+        <!-- Navigation -->
+        <div class="navbar bg-base-200">
+            <div class="navbar-start">
+                <a href="/" class="btn btn-ghost text-xl">TTT-99 Royale</a>
+            </div>
+            <div class="navbar-end">
+                <a href="/spectate" class="btn btn-outline">Spectate</a>
+            </div>
+        </div>
+
+        <!-- Username Entry -->
+        <div class="min-h-screen flex items-center justify-center">
+            <div class="card w-96 bg-base-200 shadow-xl">
+                <div class="card-body">
+                    <h1 class="card-title text-primary text-2xl">Join Tournament</h1>
+                    <p class="text-base-content mb-4">Enter your username to join the tournament</p>
+                    
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Username</span>
+                        </label>
+                        <input 
+                            id="username-input" 
+                            type="text" 
+                            placeholder="Enter username (1-16 chars)" 
+                            class="input input-bordered w-full" 
+                            maxlength="16"
+                        />
+                        <label class="label">
+                            <span id="username-error" class="label-text-alt text-error hidden"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="card-actions justify-end">
+                        <a href="/" class="btn btn-ghost">Back</a>
+                        <button id="join-btn" class="btn btn-primary">Enter Lobby</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Username validation
+        const usernameInput = document.getElementById('username-input');
+        const joinBtn = document.getElementById('join-btn');
+        const errorSpan = document.getElementById('username-error');
+
+        function validateUsername(username) {
+            if (!username) return 'Username is required';
+            if (username.length < 1 || username.length > 16) return 'Username must be 1-16 characters';
+            if (!/^[a-zA-Z0-9]+$/.test(username)) return 'Username must be alphanumeric only';
+            return null;
+        }
+
+        usernameInput.addEventListener('input', () => {
+            const username = usernameInput.value;
+            const error = validateUsername(username);
+            
+            if (error) {
+                errorSpan.textContent = error;
+                errorSpan.classList.remove('hidden');
+                joinBtn.disabled = true;
+                joinBtn.classList.add('btn-disabled');
+            } else {
+                errorSpan.classList.add('hidden');
+                joinBtn.disabled = false;
+                joinBtn.classList.remove('btn-disabled');
+            }
+        });
+
+        joinBtn.addEventListener('click', () => {
+            const username = usernameInput.value;
+            const error = validateUsername(username);
+            
+            if (!error) {
+                // Save to localStorage
+                localStorage.setItem('ttt99-username', username);
+                // Redirect to lobby
+                window.location.href = '/lobby';
+            }
+        });
+
+        // Load saved username
+        const savedUsername = localStorage.getItem('ttt99-username');
+        if (savedUsername) {
+            usernameInput.value = savedUsername;
+            usernameInput.dispatchEvent(new Event('input'));
+        }
+    </script>
+</body>
+</html>

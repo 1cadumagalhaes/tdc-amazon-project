@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game - TTT-99 Royale</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.24/dist/full.min.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+    <div class="min-h-screen bg-base-100 p-4">
+        <!-- Game Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold">TTT-99 Match</h1>
+            <p class="text-sm opacity-70">Tournament Game</p>
+        </div>
+
+        <!-- Game Container -->
+        <div id="game-container"></div>
+    </div>
+
+    <script src="components.js"></script>
+    <script src="websocket-client.js"></script>
+    <script src="sounds.js"></script>
+    <script>
+        // Initialize sound and dev mode
+        const soundManager = new SoundManager();
+        const devMode = new DevMode();
+        window.soundManager = soundManager; // Make available globally
+
+        // Check if user has username and match info
+        const username = localStorage.getItem('ttt99-username');
+        const matchInfo = JSON.parse(localStorage.getItem('ttt99-match') || 'null');
+        
+        if (!username) {
+            window.location.href = '/join';
+        }
+
+        // Initialize game container with callbacks
+        const gameContainer = new GameContainerComponent('game-container');
+        
+        // Set up all callbacks including ready
+        gameContainer.setCallbacks(
+            // onMove
+            (cellIndex) => {
+                if (devMode.isEnabled()) {
+                    // Dev mode: handle locally
+                    const result = devEngine.makeMove(cellIndex);
+                    if (result.type !== 'ongoing') {
+                        // Game ended - stop all timers
+                        gameContainer.updatePlayers(
+                            { isActive: false },
+                            { isActive: false }
+                        );
+                        
+                        gameContainer.updateGame({
+                            board: newBoard,
+                            gameStatus: 'finished',
+                            winner: result.winner || null
+                        });
+
+                        // Play result sound
+                        if (result.type === 'win') {
+                            const won = result.winner === myMark;
+                            soundManager.play(won ? 'win' : 'lose');
+                        } else if (result.type === 'draw') {
+                            soundManager.play('draw');
+                        }
+                    } else {
+                        // Continue game
+                        gameContainer.updateGame({
+                            board: devEngine.getBoard(),
+                            currentPlayer: devEngine.getCurrentPlayer()
+                        });
+                        
+                        // Update timers
+                        const isXTurn = devEngine.getCurrentPlayer() === 'X';
+                        gameContainer.updatePlayers(
+                            { isActive: isXTurn },
+                            { isActive: !isXTurn }
+                        );
+                    }
+                } else {
+                    // Real mode: send to server only if we have session
+                    console.log('Attempting move. hasSession:', hasSession, 'myMark:', myMark, 'currentPlayer:', gameState.currentPlayer);
+                    if (hasSession && client.makeMove(cellIndex)) {
+                        console.log(`Move sent: ${cellIndex}`);
+                    } else if (!hasSession) {
+                        console.warn('Cannot make move: no session');
+                    }
+                }
+            },
+            // onMarkSelect
+            (mark) => {
+                myMark = mark;
+                if (devMode.isEnabled()) {
+                    devEngine.setPlayerMark(mark);
+                    gameContainer.updateGame({
+                        gameStatus: 'playing',
+                        myMark: mark,
+                        currentPlayer: devEngine.getCurrentPlayer(),
+                        board: devEngine.getBoard()
+                    });
+                    
+                    // Start timers
+                    gameContainer.updatePlayers(
+                        { isActive: mark === 'X' },
+                        { isActive: mark === 'O' }
+                    );
+                }
+            },
+            // onResign
+            () => {
+                if (!devMode.isEnabled()) {
+                    client.resign();
+                }
+            },
+            // onPremove
+            (cellIndex) => {
+                console.log(`Premove set: ${cellIndex}`);
+            },
+            // onFlagFall
+            (playerMark) => {
+                console.log(`Flag fall: ${playerMark}`);
+                
+                if (devMode.isEnabled()) {
+                    const won = playerMark !== myMark; // Opponent ran out of time
+                    
+                    // Stop all timers
+                    gameContainer.updatePlayers(
+                        { isActive: false },
+                        { isActive: false }
+                    );
+                    
+                    gameContainer.updateGame({
+                        gameStatus: 'finished',
+                        winner: won ? myMark : (myMark === 'X' ? 'O' : 'X')
+                    });
+
+                    soundManager.play(won ? 'win' : 'lose');
+                }
+            },
+            // onPlayAgain
+            () => {
+                console.log('Play again clicked');
+            },
+            // onBackToLobby
+            () => {
+                window.location.href = '/lobby';
+            },
+            // onReady
+            () => {
+                if (!devMode.isEnabled()) {
+                    console.log('Player ready!');
+                    client.ready();
+                }
+            }
+        );
+        const client = new TTTWebSocketClient();
+
+        // Game state
+        let myMark = null;
+        let gameState = {
+            board: Array(9).fill(null),
+            currentPlayer: 'X',
+            gameStatus: 'waiting'
+        };
+        let hasSession = false; // Track if we have a valid session
+        
+        // Make gameState globally accessible for dev mode
+        window.gameState = gameState;
+
+        // WebSocket handlers (only if not in dev mode)
+        if (!devMode.isEnabled()) {
+            client.onConnect = () => {
+                console.log('Connected to game server');
+                // Always try to rejoin with our username and session token
+                console.log('Rejoining with session token:', client.sessionToken);
+                client.joinQueue(username);
+            };
+
+            client.onMessage = (data) => {
+                console.log('Game message:', data);
+                handleGameMessage(data);
+            };
+
+            client.onError = (error) => {
+                console.error('Game connection error:', error);
+            };
+        } else {
+            // Dev mode: simulate match found immediately
+            setTimeout(() => {
+                handleMatchFound({
+                    yourMark: 'X',
+                    opponent: 'Computer',
+                    baseTimeMs: 30000
+                });
+                soundManager.play('match');
+            }, 1000);
+        }
+
+        function handleGameMessage(data) {
+            switch (data.type) {
+                case 'lobby_update':
+                    // We successfully reconnected, now we have a session
+                    hasSession = true;
+                    console.log('Session established via lobby_update');
+                    break;
+                case 'match_found':
+                    soundManager.play('match');
+                    handleMatchFound(data);
+                    break;
+                case 'state_update':
+                    soundManager.play('move');
+                    handleStateUpdate(data);
+                    break;
+                case 'game_result':
+                    handleGameResult(data);
+                    break;
+                case 'rematch_started':
+                    soundManager.play('match');
+                    handleRematchStarted(data);
+                    break;
+                case 'error':
+                    console.error(`Game Error: ${data.message}`);
+                    // If we get "Must join queue first", we'll handle it by re-establishing session
+                    break;
+            }
+        }
+
+        function handleMatchFound(data) {
+            myMark = data.yourMark;
+            hasSession = true; // We now have a valid session
+            
+            gameContainer.updateGame({
+                gameStatus: 'playing',
+                myMark: myMark,
+                currentPlayer: 'X'
+            });
+
+            // Update players
+            gameContainer.updatePlayers(
+                {
+                    username: myMark === 'X' ? username : data.opponent,
+                    score: 0,
+                    mark: 'X',
+                    isActive: true,
+                    timeMs: data.baseTimeMs || 30000
+                },
+                {
+                    username: myMark === 'O' ? username : data.opponent,
+                    score: 0,
+                    mark: 'O', 
+                    isActive: false,
+                    timeMs: data.baseTimeMs || 30000
+                }
+            );
+        }
+
+        function handleStateUpdate(data) {
+            gameState.board = data.board;
+            gameState.currentPlayer = data.currentPlayer;
+            
+            gameContainer.updateGame({
+                board: data.board,
+                currentPlayer: data.currentPlayer,
+                gameStatus: 'playing'
+            });
+
+            // Update timers - fix the assignment
+            if (data.clock) {
+                gameContainer.updatePlayers(
+                    {
+                        timeMs: data.clock.playerX.remainingMs,
+                        isActive: data.currentPlayer === 'X'
+                    },
+                    {
+                        timeMs: data.clock.playerO.remainingMs,
+                        isActive: data.currentPlayer === 'O'
+                    }
+                );
+            }
+        }
+
+        function handleGameResult(data) {
+            gameContainer.updateGame({
+                gameStatus: 'finished',
+                winner: data.result.winner || null
+            });
+
+            // Play result sound
+            if (data.result.type === 'win') {
+                const won = data.result.winner === myMark;
+                soundManager.play(won ? 'win' : 'lose');
+            } else if (data.result.type === 'draw') {
+                soundManager.play('draw');
+            }
+
+            // Show result
+            setTimeout(() => {
+                if (data.result.type === 'win') {
+                    const won = data.result.winner === myMark;
+                    console.log(won ? 'You won!' : 'You lost!');
+                } else if (data.result.type === 'draw') {
+                    console.log('Draw! Preparing rematch...');
+                } else if (data.result.type === 'timeout') {
+                    const won = data.result.winner === myMark;
+                    console.log(won ? 'You won by timeout!' : 'You lost by timeout!');
+                }
+
+                // Return to lobby after delay (unless dev mode)
+                if (!devMode.isEnabled()) {
+                    setTimeout(() => {
+                        window.location.href = '/lobby';
+                    }, 3000);
+                }
+            }, 1000);
+        }
+
+        function handleRematchStarted(data) {
+            console.log(`Rematch! Base time: ${data.baseTimeMs/1000}s`);
+            
+            // Reset game state
+            gameContainer.updateGame({
+                board: Array(9).fill(null),
+                currentPlayer: 'X',
+                gameStatus: 'playing'
+            });
+        }
+
+        // Set up game callbacks
+        gameContainer.setCallbacks(
+            // On move
+            (cellIndex) => {
+                soundManager.play('move');
+                
+                if (devMode.isEnabled()) {
+                    // Dev mode: update board locally and check for win
+                    const newBoard = [...gameState.board];
+                    newBoard[cellIndex] = myMark;
+                    gameState.board = newBoard;
+                    
+                    // Check for game end after player move
+                    const result = devMode.checkWin(newBoard);
+                    
+                    if (result.type !== 'ongoing') {
+                        // Game ended with player move - stop all timers
+                        gameContainer.updatePlayers(
+                            { isActive: false },
+                            { isActive: false }
+                        );
+                        
+                        gameContainer.updateGame({
+                            board: newBoard,
+                            gameStatus: 'finished',
+                            winner: result.winner || null
+                        });
+
+                        // Play result sound
+                        if (result.type === 'win') {
+                            const won = result.winner === myMark;
+                            soundManager.play(won ? 'win' : 'lose');
+                        } else if (result.type === 'draw') {
+                            soundManager.play('draw');
+                        }
+                    } else {
+                        // Continue game - switch turns and simulate opponent
+                        gameState.currentPlayer = myMark === 'X' ? 'O' : 'X';
+                        
+                        gameContainer.updateGame({
+                            board: newBoard,
+                            currentPlayer: gameState.currentPlayer
+                        });
+                        
+                        // Update player timers (switch active player)
+                        gameContainer.updatePlayers(
+                            {
+                                isActive: gameState.currentPlayer === 'X'
+                            },
+                            {
+                                isActive: gameState.currentPlayer === 'O'
+                            }
+                        );
+                        
+                        // Simulate opponent move
+                        devMode.simulateOpponentMove(gameContainer, newBoard, myMark);
+                    }
+                } else {
+                    // Real mode: send to server only if we have session
+                    console.log('Attempting move. hasSession:', hasSession, 'myMark:', myMark, 'currentPlayer:', gameState.currentPlayer);
+                    if (hasSession && client.makeMove(cellIndex)) {
+                        console.log(`Move sent: ${cellIndex}`);
+                    } else if (!hasSession) {
+                        console.warn('Cannot make move: no session');
+                    }
+                }
+            },
+            // On mark select (not used in real game)
+            null,
+            // On resign
+            () => {
+                if (confirm('Are you sure you want to resign?')) {
+                    if (devMode.isEnabled()) {
+                        window.location.href = '/lobby';
+                    } else {
+                        client.resign();
+                    }
+                }
+            },
+            // On premove
+            (cellIndex) => {
+                if (cellIndex !== null) {
+                    soundManager.play('premove');
+                    console.log(`Premove set at cell ${cellIndex + 1}`);
+                } else {
+                    console.log('Premove cancelled');
+                }
+            },
+            // On flag fall
+            (playerMark) => {
+                console.log(`Flag fall: ${playerMark}`);
+                
+                if (devMode.isEnabled()) {
+                    const won = playerMark !== myMark; // Opponent ran out of time
+                    
+                    // Stop all timers
+                    gameContainer.updatePlayers(
+                        { isActive: false },
+                        { isActive: false }
+                    );
+                    
+                    gameContainer.updateGame({
+                        gameStatus: 'finished',
+                        winner: won ? myMark : (myMark === 'X' ? 'O' : 'X')
+                    });
+
+                    soundManager.play(won ? 'win' : 'lose');
+                }
+            },
+            // On play again
+            () => {
+                window.location.reload();
+            },
+            // On back to lobby
+            () => {
+                window.location.href = '/lobby';
+            }
+        );
+
+        // Initialize
+        if (matchInfo && !devMode.isEnabled()) {
+            // Use stored match info
+            handleMatchFound(matchInfo);
+            localStorage.removeItem('ttt99-match');
+            hasSession = true; // Assume we have session from match info
+        } else if (!devMode.isEnabled()) {
+            // Show waiting state with helpful message
+            gameContainer.updateGame({
+                gameStatus: 'waiting'
+            });
+            
+            // Show message about dev mode
+            setTimeout(() => {
+                const statusDiv = document.querySelector('#game-container .text-center');
+                if (statusDiv) {
+                    statusDiv.innerHTML = `
+                        <div class="loading loading-spinner"></div>
+                        <p>Waiting for match state...</p>
+                        <p class="text-sm opacity-70 mt-2">
+                            For testing, try <a href="/game?dev=true" class="link">dev mode</a>
+                        </p>
+                    `;
+                }
+            }, 2000);
+        }
+
+        // Connect to server (only if not dev mode)
+        if (!devMode.isEnabled()) {
+            client.connect();
+        }
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Sound toggle (Ctrl+M)
+            if (e.key === 'm' && e.ctrlKey) {
+                const enabled = soundManager.toggle();
+                console.log(`🔊 Sound ${enabled ? 'enabled' : 'disabled'}`);
+                return;
+            }
+
+            // Only handle game shortcuts if in playing state
+            if (gameContainer.gameBoard.state.gameStatus !== 'playing') return;
+
+            // Number keys 1-9 for moves
+            const num = parseInt(e.key);
+            if (num >= 1 && num <= 9) {
+                e.preventDefault();
+                const cellIndex = num - 1;
+                const isMyTurn = gameContainer.gameBoard.state.currentPlayer === myMark;
+                
+                if (!gameContainer.gameBoard.state.board[cellIndex]) {
+                    if (isMyTurn) {
+                        // Make move
+                        gameContainer.gameBoard.onMove?.(cellIndex);
+                    } else {
+                        // Set premove
+                        gameContainer.gameBoard.setPremove(cellIndex);
+                    }
+                }
+            }
+
+            // ESC to cancel premove
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                if (gameContainer.gameBoard.state.premove !== null) {
+                    gameContainer.gameBoard.setPremove(gameContainer.gameBoard.state.premove); // Toggle off
+                }
+            }
+        });
+    </script>
+</body>
+</html>
